@@ -267,6 +267,8 @@
                 });
 
                 pintarPilotes();
+                actualizarAvance();
+
                 mensaje.textContent = "Google Sheets actualizado: " +
                     new Date().toLocaleTimeString("es-CO");
 
@@ -274,6 +276,7 @@
                 console.error(error);
                 mensaje.textContent = "Sin conexión. Se conservan los datos de QGIS.";
                 pintarPilotes();
+                actualizarAvance();
             }
         }
 
@@ -325,27 +328,26 @@
 
         function actualizarAvance() {
 
-            // Total de pilotes cargados
             const total = puntos.length;
 
-            // Clasificar pilotes fundidos por torre
-            const fundidosT1 = puntos.filter(({torre, feature}) =>
-                torre === "T1" &&
-                tieneFechaFundido(feature.get("FechaFundido"))
+            const fundidosT1 = puntos.filter(p =>
+                p.torre === "T1" && estado(p.feature) === "FUNDIDO"
             ).length;
 
-            const fundidosT2 = puntos.filter(({torre, feature}) =>
-                torre === "T2" &&
-                tieneFechaFundido(feature.get("FechaFundido"))
+            const fundidosT2 = puntos.filter(p =>
+                p.torre === "T2" && estado(p.feature) === "FUNDIDO"
             ).length;
 
-            // Total de pilotes fundidos
             const fundidos = fundidosT1 + fundidosT2;
 
-            // Calcular pendientes
-            const pendientes = total - fundidos;
+            const pendientes = puntos.filter(p =>
+                estado(p.feature) === "PENDIENTE"
+            ).length;
 
-            // Porcentajes
+            const ejecucion = puntos.filter(p =>
+                estado(p.feature) === "EJECUCION"
+            ).length;
+
             const porcentaje = total > 0
                 ? (fundidos / total) * 100
                 : 0;
@@ -361,24 +363,19 @@
                 ? (fundidosT2 / totalT2) * 100
                 : 0;
 
-            // Actualizar indicadores generales
-            document.getElementById("porcentajeAvance")
-                .textContent = porcentaje.toFixed(1) + "%";
+            document.getElementById("porcentajeAvance").textContent =
+                porcentaje.toFixed(1) + "%";
 
-            document.getElementById("barraAvance")
-                .style.width = porcentaje + "%";
+            document.getElementById("barraAvance").style.width =
+                porcentaje + "%";
 
-            document.getElementById("detalleAvance")
-                .textContent =
-                `${fundidos} de ${total} pilotes fundidos | ${pendientes} pendientes`;
+            document.getElementById("detalleAvance").textContent =
+                `${fundidos} de ${total} fundidos | ${ejecucion} en ejecución | ${pendientes} pendientes`;
 
-            // Actualizar avance por torre
-            document.getElementById("avanceTorres")
-                .textContent =
+            document.getElementById("avanceTorres").textContent =
                 `T1: ${avanceT1.toFixed(1)}% (${fundidosT1}/${totalT1}) | ` +
                 `T2: ${avanceT2.toFixed(1)}% (${fundidosT2}/${totalT2})`;
 
-            // Cambiar color según el avance
             const barra = document.getElementById("barraAvance");
 
             if (porcentaje < 40) {
@@ -429,6 +426,25 @@
             }
             encontrados.forEach(({torre:piso, feature}) => {
                 const datos = feature.getProperties();
+
+                const id = String(datos.id || "").trim().toUpperCase();
+                const sheet = datosSheets[id];
+
+                const fechaFundido = sheet
+                    ? sheet.k
+                    : datos.FechaFundido;
+
+                const fechaReplanteo = sheet
+                    ? sheet.l
+                    : datos.FechaReplanteo;
+
+                
+
+                detalle.textContent =
+                    `Estado: ${estado(feature)} | ` +
+                    `Fundido: ${fechaFundido || "—"} | ` +
+                    `Replanteo: ${fechaReplanteo || "—"} | ` +
+                    `Replanteado: ${datos.replanteado || "—"}`;
                 const item = document.createElement("button");
                 item.type = "button";
                 item.className = "result";
